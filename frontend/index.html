@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html class="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LineAI - Search</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Lora:ital,wght@1,400;1,500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22 fill=%22none%22>
+    <circle cx=%2250%22 cy=%2215%22 r=%228%22 fill=%22white%22 />
+    <circle cx=%2250%22 cy=%2285%22 r=%228%22 fill=%22white%22 />
+    <circle cx=%2215%22 cy=%2250%22 r=%228%22 fill=%22white%22 />
+    <circle cx=%2285%22 cy=%2250%22 r=%228%22 fill=%22white%22 />
+    <circle cx=%2250%22 cy=%2250%22 r=%2218%22 fill=%22%237f13ec%22 stroke=%22white%22 stroke-width=%224%22 />
+</svg>">
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#7f13ec",
+                        "background-dark": "#050505",
+                        "card-dark": "#0a0a0a",
+                        "border-dark": "#1f1f1f"
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "serif": ["Lora", "serif"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        body { font-family: 'Space Grotesk', sans-serif; }
+        .search-glow:focus-within { box-shadow: 0 0 25px 0px rgba(127, 19, 236, 0.2); }
+        .glass-card { background: linear-gradient(180deg, rgba(127, 19, 236, 0.08) 0%, rgba(10, 5, 16, 0) 100%); }
+        @keyframes pulse-slow { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+        .animate-pulse-slow { animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+@keyframes dot-pulse {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+.dot-1 { animation: dot-pulse 1.5s infinite 0s; }
+.dot-2 { animation: dot-pulse 1.5s infinite 0.3s; }
+.dot-3 { animation: dot-pulse 1.5s infinite 0.6s; }
+    </style>
+</head>
+<body class="bg-background-dark text-slate-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function LineAI() {          
+	    const [view, setView] = useState('home'); 
+            const [query, setQuery] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [articles, setArticles] = useState([]);
+            const [selectedIds, setSelectedIds] = useState([]);
+            // Updated synthesis state to be an object
+            const [synthesis, setSynthesis] = useState({ text: '', references: [] });
+
+            const handleSearch = async () => {
+                if (!query) return;
+                setLoading(true);
+                setView('selection');
+                try {
+                    const res = await fetch('https://lineai-backend-493098257944.europe-central2.run.app/search', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ query })
+                    });
+                    const data = await res.json();
+                    setArticles(data);
+                } catch (e) { 
+                    alert("Backend connection failed."); 
+                    setView('home');
+                }
+                setLoading(false);
+            };
+
+            const handleSynthesize = async () => {
+                setLoading(true);
+                const selected = articles.filter((_, i) => selectedIds.includes(i));
+                setView('result');
+                try {
+                    const res = await fetch('https://lineai-backend-493098257944.europe-central2.run.app/synthesize', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ query, selected_articles: selected })
+                    });
+                    const data = await res.json();
+                    // data is now { text: "...", references: [...] }
+                    setSynthesis(data);
+                } catch (e) { 
+                    alert("Synthesis failed."); 
+                    setView('selection');
+                }
+                setLoading(false);
+            };
+
+            const toggleArticle = (index) => {
+                setSelectedIds(prev => prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]);
+            };
+
+            return (
+                <div className="relative flex flex-col min-h-screen">
+<header className="flex items-center justify-between px-12 py-8 w-full z-10">
+    <div 
+        className="flex items-center gap-3 cursor-pointer group" 
+        onClick={() => {setView('home'); setArticles([]); setSelectedIds([]); setQuery('');}}
+    >
+        {/* Interactive Petri Dish + Neurons */}
+        <div className="relative size-16 flex items-center justify-center">
+            {/* The Dish Rim */}
+            <svg viewBox="0 0 24 24" className="absolute inset-0 size-full fill-none stroke-slate-800 stroke-[1]">
+                <circle cx="12" cy="12" r="8" />
+            </svg>
+            
+            {/* The Neurons (Interactive Cluster) */}
+            <svg viewBox="0 0 100 100" className="size-10 fill-none stroke-primary/30 stroke-[2]">
+                {/* Connection Lines - They fade out on hover to emphasize movement */}
+                <g className="transition-opacity duration-500 group-hover:opacity-0">
+                    <line x1="50" y1="20" x2="50" y2="80" />
+                    <line x1="20" y1="50" x2="80" y2="50" />
+                    <line x1="30" y1="30" x2="70" y2="70" />
+                    <line x1="70" y1="30" x2="30" y2="70" />
+                </g>
+                
+                {/* Neuron Nodes - Moving away from center on group-hover */}
+                <circle cx="50" cy="50" r="6" fill="white" stroke="none" 
+                    className="transition-all duration-700 ease-out transform group-hover:-translate-y-8" />
+                
+                <circle cx="50" cy="50" r="6" fill="white" stroke="none" 
+                    className="transition-all duration-700 ease-out transform group-hover:translate-y-8" />
+                
+                <circle cx="50" cy="50" r="6" fill="white" stroke="none" 
+                    className="transition-all duration-700 ease-out transform group-hover:-translate-x-8" />
+                
+                <circle cx="50" cy="50" r="6" fill="white" stroke="none" 
+                    className="transition-all duration-700 ease-out transform group-hover:translate-x-8" />
+
+                {/* Center Core - Stays put but glows */}
+                <circle cx="50" cy="50" r="9" fill="#7f13ec" stroke="white" strokeWidth="2" 
+                    className="transition-all duration-500 group-hover:shadow-[0_0_15px_rgba(127,19,236,0.8)]" />
+            </svg>
+        </div>
+
+        {/* Brand Text - Now closer to the logo */}
+        <div className="flex flex-col">
+            <h2 className="text-2xl font-bold tracking-tight text-white font-display leading-none">
+                LineAI
+            </h2>
+            <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] uppercase tracking-[0.4em] text-slate-600 font-black">
+                    Clever (Re)Search
+                </span>
+            </div>
+        </div>
+    </div>
+<button 
+onClick={() => setView(view === 'about' ? 'home' : 'about')}
+        className={`text-[10px] font-bold uppercase tracking-[0.3em] px-6 py-3 rounded-full border transition-all ${view === 'about' ? 'bg-white text-black border-white' : 'text-slate-400 border-border-dark hover:border-primary hover:text-primary'}`}
+    >
+        {view === 'about' ? 'Close' : 'How it works?'}
+    </button>
+</header>
+
+                    {/* VIEW: HOME */}
+                    {view === 'home' && (
+                        <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-20">
+                            <div className="w-full max-w-2xl text-center space-y-6">
+                                <h1 className="text-6xl font-bold tracking-tighter text-white font-display">LineAI</h1>
+                                <p className="text-slate-500 text-lg font-light">Transform claims into scientifically supported sentences</p>
+                                <div className="mt-12 search-glow flex items-center bg-card-dark rounded-2xl border border-border-dark p-2 focus-within:border-primary/50">
+                                    <input 
+                                        className="flex-1 bg-transparent border-none focus:ring-0 text-white px-5 py-4 text-lg"
+                                        placeholder="Enter a claim..."
+                                        value={query}
+					maxLength={100}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                                    />
+                                    <button onClick={handleSearch} className="bg-primary text-white font-bold px-8 py-4 rounded-xl transition-all">Search</button>
+                                </div>
+                            </div>
+                        </main>
+                    )}
+
+                    {/* VIEW: SELECTION */}
+{/* VIEW: SELECTION */}
+{view === 'selection' && (
+    <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12">
+        <h2 className="text-3xl font-bold text-white mb-8 font-display flex items-center">
+            Evidence Discovery
+            {loading && (
+                <span className="ml-2 flex">
+                    <span className="dot-1">.</span><span className="dot-2">.</span><span className="dot-3">.</span>
+                </span>
+            )}
+        </h2>
+
+        <div className="grid gap-4 mb-24">
+            {loading ? (
+                /* 1. Loading Skeletons */
+                [1,2,3].map(i => <div key={i} className="p-8 rounded-2xl border border-white/10 bg-slate-800/40 animate-pulse-slow h-32"></div>)
+            ) : (articles && articles.length > 0) ? (
+                /* 2. Article List Render */
+                articles.map((art, i) => (
+                    <div 
+                        key={i} 
+                        onClick={() => toggleArticle(i)} 
+                        className={`p-8 rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${selectedIds.includes(i) ? 'border-primary bg-primary/5' : 'border-border-dark bg-card-dark'}`}
+                    >
+                        <div className="space-y-1">
+                            <h3 className="font-semibold text-lg text-slate-200">{art.title}</h3>
+                            <p className="text-sm text-slate-500 italic">
+                                {art.authors} • {art.journal} ({art.year})
+                                <span className="ml-3 text-primary not-italic font-bold">
+                                    CitScore: {art.citescore}
+                                </span>
+                            </p>
+                        </div>
+                        {/* Re-added the selection icon so you can actually see what is selected */}
+                        <span className="material-symbols-outlined text-primary">
+                            {selectedIds.includes(i) ? 'check_circle' : 'radio_button_unchecked'}
+                        </span>
+                    </div>
+                ))
+            ) : (
+                /* 3. Empty State / Non-Scientific Query Message */
+                <div className="text-center py-20">
+                    <p className="text-xl text-slate-400 font-medium">
+                        Whoops, seems like there are no references for that, try again!
+                    </p>
+                    <button 
+                        onClick={() => {setView('home'); setArticles([]);}} 
+                        className="mt-6 text-primary hover:underline font-bold flex items-center gap-2 mx-auto"
+                    >
+                        <span className="material-symbols-outlined text-sm">arrow_back</span>
+                        Back to Search
+                    </button>
+                </div>
+            )}
+        </div>
+        
+        {/* Only show the Synthesize button if articles were found */}
+        {!loading && articles && articles.length > 0 && (
+            <div className="fixed bottom-12 left-0 w-full flex justify-center">
+                <button 
+                    onClick={handleSynthesize} 
+                    disabled={selectedIds.length === 0} 
+                    className="bg-primary text-white px-12 py-5 rounded-full font-bold shadow-2xl disabled:opacity-30 transition-all hover:scale-105 active:scale-95"
+                >
+                    Synthesize {selectedIds.length} Sources
+                </button>
+            </div>
+        )}
+    </main>
+)}  {/* VIEW: ABOUT */}
+{view === 'about' && (
+    <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 space-y-12">
+        <section className="text-center space-y-4">
+            <h2 className="text-4xl font-bold text-white font-display tracking-tight">System Architecture</h2>
+            <p className="text-slate-400 font-light">A multi-layered pipeline for academic verification.</p>
+        </section>
+
+        <div className="grid gap-6">
+            {/* Logic & Process */}
+            <div className="bg-card-dark border border-border-dark p-8 rounded-[2rem] space-y-8">
+                <div>
+                    <h3 className="text-primary font-bold uppercase tracking-widest text-xs mb-4">The Process</h3>
+                    <div className="grid md:grid-cols-3 gap-6 text-sm">
+                        <div className="space-y-2">
+                            <p className="text-white font-semibold">1. Neural Search</p>
+                            <p className="text-slate-500 leading-relaxed">Gemini 2.5 Flash uses Search Grounding to find potential peer-reviewed titles based on your claim.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-white font-semibold">2. DOI Resolution</p>
+                            <p className="text-slate-500 leading-relaxed">Crossref verifies existence, filters out preprints/corrections, and provides the unique DOI and ISSN.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-white font-semibold">3. Impact Analysis</p>
+                            <p className="text-slate-500 leading-relaxed">OpenAlex retrieves the '2-year mean citedness', giving you a real-time CiteScore for the journal.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pt-8 border-t border-white/5">
+                    <h3 className="text-red-500/80 font-bold uppercase tracking-widest text-xs mb-4">System Limitations</h3>
+                    <ul className="grid md:grid-cols-2 gap-4 text-xs text-slate-500 list-disc pl-4">
+                        <li>Maximum of 100 characters per claim to ensure search precision.</li>
+                        <li>Requires a valid ISSN from Crossref to fetch journal impact metrics.</li>
+                        <li>Search is limited to 5 journal articles; books and conference papers are currently filtered out.</li>
+                        <li>The 'Repetition Test' ignores duplicate DOIs, which may reduce the result count if the same paper is found multiple times.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div className="flex justify-center">
+            <button onClick={() => setView('home')} className="bg-primary text-white px-10 py-4 rounded-full font-bold shadow-lg hover:shadow-primary/20 transition-all">
+                Got it, let's search
+            </button>
+        </div>
+    </main>
+)}              {/* VIEW: RESULT */}
+                    {view === 'result' && (
+                        <main className="flex-1 flex flex-col items-center py-20 px-6 max-w-4xl mx-auto w-full">
+                            {loading ? (
+<div className="w-full space-y-8 animate-pulse-slow">
+        <div className="h-56 bg-slate-800/30 rounded-[3rem] border border-primary/30"></div>
+        <div className="h-80 bg-slate-800/20 rounded-3xl border border-white/5"></div>
+    </div>
+                            ) : (
+                                <div className="w-full space-y-8">
+                                    {/* BOX 1: SYNTHESIS */}
+                                    <div className="relative glass-card border border-primary/20 rounded-[3rem] p-10 md:p-16 shadow-2xl">
+                                        <div className="text-center mb-8">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary">Neural Synthesis Result</span>
+                                        </div>
+                                        <p className="text-2xl md:text-3xl font-serif italic text-center leading-relaxed text-slate-100">
+                                            {synthesis.text}
+                                        </p>
+                                        <div className="mt-10 flex justify-center">
+                                            <button onClick={() => navigator.clipboard.writeText(synthesis.text)} className="flex items-center gap-2 text-xs text-slate-500 hover:text-primary transition-colors">
+                                                <span className="material-symbols-outlined text-sm">content_copy</span> Copy Synthesis
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* BOX 2: STRUCTURED REFERENCES */}
+                                    <div className="bg-card-dark border border-border-dark rounded-3xl p-8 shadow-inner">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-sm">menu_book</span> Verified Sources
+                                        </h3>
+                                        <div className="space-y-6">
+                                            {synthesis.references && synthesis.references.map((ref, i) => (
+                                                <div key={i} className="pb-6 border-b border-white/5 last:border-0">
+                                                    <p className="text-slate-200 font-medium mb-1">{ref.title}</p>
+                                                    <div className="flex flex-wrap gap-x-4 text-xs text-slate-500">
+                                                        <span className="text-primary/80 font-semibold">{ref.authors}</span>
+                                                        <span>{ref.journal} ({ref.year})</span>
+                                                    </div>
+                                                    {ref.doi && (
+                                                        <a href={ref.doi} target="_blank" className="inline-flex items-center gap-1 mt-3 text-[10px] text-primary hover:underline uppercase font-bold tracking-tighter">
+                                                            View DOI <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-center pt-8">
+                                        <button onClick={() => {setView('home'); setQuery('');}} className="bg-white text-black px-10 py-4 rounded-full font-bold hover:bg-slate-200 transition-all">
+                                            Start New Research
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+                    )}
+
+<footer className="py-12 text-center border-t border-border-dark/30 mt-auto">
+    <div className="flex flex-col md:flex-row justify-center items-center gap-6 md:gap-12">
+        <div className="flex gap-8 text-[10px] font-bold text-slate-700 uppercase tracking-[0.3em]">
+            <a 
+                href="https://deepmind.google/technologies/gemini/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors border-b border-transparent hover:border-primary/30 pb-1 flex items-center gap-1"
+            >
+                Powered by Gemini 3
+                <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+            </a>            
+	    <a 
+                href="https://www.crossref.org/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors border-b border-transparent hover:border-primary/30 pb-1 flex items-center gap-1"
+            >
+                Verified by CrossRef
+                <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+            </a>
+        </div>
+	<div className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.3em] flex items-center gap-1">
+            <span className="text-slate-800">© 2026</span> 
+            <a 
+                href="https://github.com/vassishap" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-slate-700 hover:text-primary transition-colors cursor-pointer"
+            >
+                LineAI Research Software
+            </a>
+        </div>
+    </div>
+</footer>
+
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[150px] pointer-events-none -z-10"></div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<LineAI />);
+    </script>
+</body>
+</html>

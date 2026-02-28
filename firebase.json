@@ -1,0 +1,21 @@
+{
+  "hosting": {
+    "public": "frontend",
+    "rewrites": [
+      {
+        "source": "/search",
+        "run": {
+          "serviceId": "lineai-backend",
+          "region": "europe-central2"
+        }
+      },
+      {
+        "source": "/synthesize",
+        "run": {
+          "serviceId": "lineai-backend",
+          "region": "europe-central2"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+backend/src/infrastructure/
+.firebase/
+.firebaserc
+.env
+.idea/
+*.iml

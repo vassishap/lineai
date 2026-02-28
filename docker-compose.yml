@@ -1,0 +1,13 @@
+services:
+  lineai-backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lineai_backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+    restart: unless-stopped
